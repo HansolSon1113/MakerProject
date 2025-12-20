@@ -107,5 +107,10 @@ class Vision:
 
     def close(self):
         self.running = False
-        if self.process: self.process.terminate()
-        if self.thread.is_alive(): self.thread.join()
+        if self.thread.is_alive():
+            self.thread.join()
+
+        if self.process:
+            self.process.terminate()
+
+        self.interpreter = None

@@ -1,56 +1,81 @@
 import RPi.GPIO as GPIO
 import time
+import threading
 
 class DifferentialDrive:
     def __init__(self):
         self.L_PINS = [17, 27, 22, 4]
         self.R_PINS = [12, 16, 20, 21]
+        
         self.L_DIR = -1
         self.R_DIR = 1
         
+        self.step_delay = 0.003 
+
         self.seq = [
             [1,0,0,0], [1,1,0,0], [0,1,0,0], [0,1,1,0],
             [0,0,1,0], [0,0,1,1], [0,0,0,1], [1,0,0,1]
         ]
-        
+
         GPIO.setmode(GPIO.BCM)
         for pin in self.L_PINS + self.R_PINS:
             GPIO.setup(pin, GPIO.OUT)
             GPIO.output(pin, 0)
 
-    def _step(self, pins, direction, steps):
-        sequence = self.seq[:]
-        if direction == -1:
-            sequence.reverse()
+        self.current_action = "stop"
+        self.running = True
+        self.thread = threading.Thread(target=self._motor_loop, daemon=True)
+        self.thread.start()
+
+    def _step_one(self, pins, direction_val, step_index):
+        seq_idx = step_index % 8
+        if direction_val == -1:
+            seq_idx = 7 - seq_idx
             
-        for _ in range(steps):
-            for step_val in sequence:
-                for i in range(4):
-                    GPIO.output(pins[i], step_val[i])
-                time.sleep(0.001)
+        val = self.seq[seq_idx]
+        for i in range(4):
+            GPIO.output(pins[i], val[i])
+
+    def _motor_loop(self):
+        step_counter = 0
+        
+        while self.running:
+            if self.current_action == "stop":
+                time.sleep(0.1)
+                continue
+
+            if self.current_action == "forward":
+                self._step_one(self.L_PINS, 1 * self.L_DIR, step_counter)
+                self._step_one(self.R_PINS, 1 * self.R_DIR, step_counter)
+                
+            elif self.current_action == "left":
+                self._step_one(self.L_PINS, -1 * self.L_DIR, step_counter)
+                self._step_one(self.R_PINS, 1 * self.R_DIR, step_counter)
+                
+            elif self.current_action == "right":
+                self._step_one(self.L_PINS, 1 * self.L_DIR, step_counter)
+                self._step_one(self.R_PINS, -1 * self.R_DIR, step_counter)
+
+            step_counter += 1
+            time.sleep(self.step_delay)
 
     def move(self, direction="stop"):
-        if direction == "forward":
-            self._step(self.L_PINS, 1 * self.L_DIR, 15)
-            self._step(self.R_PINS, 1 * self.R_DIR, 15)
-        elif direction == "left":
-            self._step(self.L_PINS, -1 * self.L_DIR, 15)
-            self._step(self.R_PINS, 1 * self.R_DIR, 15)
-        elif direction == "right":
-            self._step(self.L_PINS, 1 * self.L_DIR, 15)
-            self._step(self.R_PINS, -1 * self.R_DIR, 15)
-        else:
-            self.stop()
+        self.current_action = direction
 
     def stop(self):
+        self.current_action = "stop"
+        time.sleep(self.step_delay * 2) 
         for pin in self.L_PINS + self.R_PINS:
             GPIO.output(pin, 0)
 
     def cleanup(self):
+        self.running = False
         self.stop()
+        if self.thread.is_alive():
+            self.thread.join()
 
 
-class ServoMotor: 
+class ServoMotor:
     def __init__(self, pin, init_angle=90):
         self.pin = pin
         self.current_angle = init_angle
@@ -58,7 +83,7 @@ class ServoMotor:
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.pin, GPIO.OUT)
         
-        self.pwm = GPIO.PWM(self.pin, 50)
+        self.pwm = GPIO.PWM(self.pin, 50) # 50Hz
         self.pwm.start(0)
         self.set_angle(init_angle, instant=True)
 
@@ -70,7 +95,7 @@ class ServoMotor:
             self._write_angle(target_angle)
             return
 
-        if self.current_angle == target_angle:
+        if int(self.current_angle) == int(target_angle):
             return
 
         step = 1 if target_angle > self.current_angle else -1

@@ -54,53 +54,55 @@ def main():
             dist_load = sensor_load.get_distance()
             dist_front = sensor_obstacle.get_distance()
             motion_detected = pir.is_active()
-            
             direction, score, frame, scores = ai_system.process_frame()
 
-            if 0 < dist_load < 3:
-                drive_base.stop()
-                buzzer.play_note('C4', 0.1); time.sleep(0.05)
-                buzzer.play_note('E4', 0.1); time.sleep(0.05)
-                buzzer.play_note('G4', 0.1); time.sleep(0.05)
-                buzzer.play_note('C5', 0.2)
-                
-                print("Bin Full")
-                lcd.write_text("!! BIN FULL !!", 1)
-                lcd.write_text("Please Empty", 2)
-                cv2.putText(frame, "BIN FULL!", (180, 120), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 0, 0), 3)
-                
-                lid_servo.set_angle(180, speed=0.02)
-
-            elif system_active and motion_detected and (0 < dist_front < 20):
-                drive_base.stop()
-                print(f"Opening Lid (Dist: {dist_front:.1f}cm)")
-                
-                lcd.write_text("Motion Detect", 1)
-                lcd.write_text("Opening...", 2)
-                
-                lid_servo.set_angle(180, speed=0.02)
-                time.sleep(5) 
-                
-                lcd.write_text("Closing...", 2)
-                lid_servo.set_angle(90, speed=0.02)
-                time.sleep(1)
-
-            elif system_active:
-                if 0 < dist_front < 10:
+            if system_active:
+                if 0 < dist_load < 3:
                     drive_base.stop()
-                    lcd.write_text("Running...", 1)
-                    lcd.write_text("OBSTACLE", 2)
-                    cv2.putText(frame, "OBSTACLE", (200, 120), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 3)
+                    buzzer.play_note('C4', 0.1); time.sleep(0.05)
+                    buzzer.play_note('E4', 0.1); time.sleep(0.05)
+                    buzzer.play_note('G4', 0.1); time.sleep(0.05)
+                    buzzer.play_note('C5', 0.2)
+                    
+                    print("Bin Full")
+                    lcd.write_text("!! BIN FULL !!", 1)
+                    lcd.write_text("Please Empty", 2)
+                    cv2.putText(frame, "BIN FULL!", (180, 120), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 0, 0), 3)
+
+                    lid_servo.set_angle(180, speed=0.02)
+                    time.sleep(10)
+                    lid_servo.set_angle(90, speed=0.02)
+                    time.sleep(1)
+
+                elif motion_detected and (0 < dist_front < 5):
+                    drive_base.stop()
+                    print(f"Opening Lid (Dist: {dist_front:.1f}cm)")
+                    
+                    lcd.write_text("Motion Detect", 1)
+                    lcd.write_text("Opening...", 2)
+                    
+                    lid_servo.set_angle(180, speed=0.02)
+                    time.sleep(5) 
+                    
+                    lcd.write_text("Closing...", 2)
+                    lid_servo.set_angle(90, speed=0.02)
+                    time.sleep(1)
+
                 else:
-                    load_msg = f"L:{dist_load:.0f}cm" if dist_load > 0 else "L:Err"
-                    lcd.write_text(f"Run: {direction}", 1)
-                    lcd.write_text(load_msg, 2)
+                    if 0 < dist_front < 10:
+                        drive_base.stop()
+                        lcd.write_text("Running...", 1)
+                        lcd.write_text("OBSTACLE", 2)
+                        cv2.putText(frame, "OBSTACLE", (200, 120), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 3)
+                    else:
+                        load_msg = f"L:{dist_load:.0f}cm" if dist_load > 0 else "L:Err"
+                        lcd.write_text(f"Run: {direction}", 1)
+                        lcd.write_text(load_msg, 2)
 
-                    if direction == "Center": drive_base.move("forward")
-                    elif direction == "Left": drive_base.move("left")
-                    elif direction == "Right": drive_base.move("right")
-                    else: drive_base.stop()
-
+                        if direction == "Center": drive_base.move("forward")
+                        elif direction == "Left": drive_base.move("left")
+                        elif direction == "Right": drive_base.move("right")
+                        else: drive_base.stop()
             else:
                 drive_base.stop()
                 lcd.write_text("Standby Mode", 1)
