@@ -1,0 +1,4 @@
+0 None
+1 Center
+2 Left
+3 Right
